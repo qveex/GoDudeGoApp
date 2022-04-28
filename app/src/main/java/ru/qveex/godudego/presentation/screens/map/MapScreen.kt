@@ -1,6 +1,9 @@
 package ru.qveex.godudego.presentation.screens.map
 
+import android.location.Location
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.Button
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,7 +43,8 @@ fun MapScreen(
                 LocalContext.current, R.raw.map_dark_theme
             ),
             latLngBoundsForCameraTarget = group,
-            minZoomPreference = 14f
+            minZoomPreference = 14f,
+            isMyLocationEnabled = true
         ),
         cameraPositionState = cameraPositionState,
         uiSettings = MapUiSettings()

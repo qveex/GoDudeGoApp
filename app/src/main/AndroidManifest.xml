@@ -33,6 +33,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".services.LocationService"
+            android:process=":go_go_location_service"
+            android:foregroundServiceType="location">
+        </service>
+
+        <receiver
+            android:name=".services.Restarter"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="restartservice" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>
