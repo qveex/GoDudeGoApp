@@ -3,6 +3,7 @@ package ru.qveex.godudego.services
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
+import android.location.Location
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
@@ -13,13 +14,13 @@ import ru.qveex.godudego.utils.Constants.LOCATION_SERVICE_ACTION
 // TODO сделаь сервис <<неубиваемым>>
 // TODO пытаться собирать статистику при выключенном приложении
 // TODO может работать как foreground service???
-class LocationService: Service() {
+class LocationService : Service() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private lateinit var locationRequest: LocationRequest
 
-    val points = listOf(
+    private val points = listOf(
         // Лесная
         LatLng(59.990810, 30.333247),
         LatLng(59.984872, 30.344079),
@@ -32,6 +33,45 @@ class LocationService: Service() {
         LatLng(59.990810, 30.333247),
         LatLng(59.988531, 30.341049),
     )
+    private var isOMW = false
+    private var start: LatLng? = null
+    private var end: LatLng? = null
+
+
+    private fun isInside(location: Location): Boolean {
+        val radius = 50 // meters
+        points.forEach {
+            val dist = distance(LatLng(location.latitude, location.longitude), it)
+            val inside = dist < radius
+            if (inside) return true
+        }
+        return false
+    }
+
+    private fun nearestPoint(location: Location): LatLng {
+        var point = LatLng(0.0, 0.0)
+        var lastDist = Float.MAX_VALUE
+        points.forEach {
+            val dist = distance(LatLng(location.latitude, location.longitude), it)
+            if (dist < lastDist) {
+                point = it
+            }
+            lastDist = dist
+        }
+        return point
+    }
+
+    private fun distance(start: LatLng, end: LatLng): Float {
+        val dist = FloatArray(1)
+        Location.distanceBetween(
+            start.latitude,
+            start.longitude,
+            end.latitude,
+            end.longitude,
+            dist
+        )
+        return dist[0]
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -43,13 +83,53 @@ class LocationService: Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
-                locationResult.locations.forEach {
-                    Log.i("CURRENT_LOCATION", "onLocationResult = $it")
+                locationResult.locations.forEach { curLocation ->
+                    Log.i("CURRENT_LOCATION", "onLocationResult = $curLocation")
                     val tick = Intent().apply {
                         action = (LOCATION_SERVICE_ACTION)
-                        putExtra("current_latitude", it.latitude)
-                        putExtra("current_longitude", it.longitude)
+                        putExtra("current_latitude", curLocation.latitude)
+                        putExtra("current_longitude", curLocation.longitude)
                     }
+
+                    val inside = isInside(curLocation)
+                    val near = nearestPoint(curLocation)
+
+
+                    // в пути
+                    if (isOMW) {
+
+                        if (inside && distance(LatLng(curLocation.latitude, curLocation.longitude), start!!) > 50
+                        ) {
+                            // пришли в конечный пункт
+                            end = near
+                            isOMW = false
+                            // stop timer
+                            // calc stats
+                            // start = null
+                            // end = null
+                        } else if (inside && near == start) {
+                            // вернулись обратно в исходный пункт
+                            // clear timer
+                            isOMW = false
+                        }
+
+                    } else {
+
+                        // мы находимся в какой-то точке?
+                        if (inside) {
+                            // только зашли
+                            if (start == null) {
+                                start = near
+                            } else { // мы находимся там уже какое-то время
+
+                            }
+                        } else { // вышли из точки, но еще не в пути
+                            isOMW = true
+                            // start timer
+                        }
+
+                    }
+
 
                     // Обновление локации не отправляется с выключенным экраном
                     sendBroadcast(tick)
